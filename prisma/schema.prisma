@@ -3,8 +3,7 @@
 // After editing: `npm run db:migrate -- --name <change>` (also regenerates the client).
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
