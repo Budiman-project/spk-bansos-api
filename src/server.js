@@ -1,9 +1,8 @@
-import { createApp } from './app.js';
+import app from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import { sessionStore } from './lib/session.js';
 
-const app = createApp();
 
 const server = app.listen(env.port, () => {
   console.log(`spk-bansos-api listening on http://localhost:${env.port} (${env.nodeEnv})`);
