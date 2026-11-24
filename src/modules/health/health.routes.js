@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 
-const router = Router();
+export const healthRouter = Router();
 
-router.get('/health', async (req, res) => {
+healthRouter.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
 
@@ -22,5 +22,3 @@ router.get('/health', async (req, res) => {
     });
   }
 });
-
-export default router;
