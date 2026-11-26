@@ -9,7 +9,8 @@ Plain JavaScript, ES modules (`"type": "module"`). Frontend lives in the separat
 ## Rules
 
 - Never commit, push, pull, fetch, or change git remotes/config — the user handles git.
-- Don't silently resolve the open decisions (C1 sifat, weights, answer-option scores); ask.
+- C1 sifat/scale, weights and answer options follow the Laporan Akhir (see workspace CLAUDE.md
+  "Decisions"); the tie-break rule is still open — don't silently resolve it; ask.
 
 ## Commands
 
@@ -18,15 +19,37 @@ cp .env.example .env            # first time
 docker compose up -d db         # Postgres only (dev)
 npm install                     # also runs `prisma generate` (postinstall)
 npm run db:migrate              # apply/create migrations (prisma migrate dev)
-npm run db:seed                 # idempotent fictional seed (accounts, RT, KK, kriteria, pertanyaan, periode)
-npm run db:seed:dummy           # TESTING ONLY: dummy opsi (prisma/dummy-data.js, C1 scale reversed = option C),
-                                # a verified survei per seed KK in the open periode, kuota 4; not the team's decision
+npm run db:seed                 # idempotent fictional seed (accounts, RT, KK, kriteria + bobot, pertanyaan,
+                                # opsi jawaban from prisma/kuesioner.js for questions without opsi, periode kuota 4)
+npm run db:seed:dummy           # the report's simulation: a verified survei per seed KK in the open periode
+                                # (prisma/dummy-data.js), kuota 4; V values = Laporan Akhir Tabel 3.5 / 4.2
 npm run dev                     # http://localhost:3000, auto-restart on change
 npm run db:studio               # browse data
 npm test                        # node:test unit tests in test/ (SAW engine, no database)
 
 docker compose up -d --build    # full stack demo: db + api + web → http://localhost:8080
+npm run vercel-build            # Vercel build: esbuild bundle src/vercel.js → dist/vercel.mjs (+ migrate if DIRECT_URL)
 ```
+
+## Hosting (Vercel + Supabase)
+
+Deployed as its own Vercel project (README "Deploy ke Vercel + Supabase"). `vercel.json`: framework
+Other, region sin1, every path rewritten to the one function `api/index.js`, which re-exports
+`dist/vercel.mjs`. The bundle exists because Prisma 7 generates TypeScript (`src/generated/prisma/*.ts`,
+run natively by Node locally); esbuild turns it into plain JS so Vercel never handles .ts files.
+npm packages stay external. Verify a change to deployment code by building the bundle and calling
+`api/index.js`'s default export as an http handler with `VERCEL=1 NODE_ENV=production`.
+- `src/lib/db.js`: one pg Pool shared by Prisma and the session store. `poolConfig()` makes
+  `sslmode=require` (Supabase) encrypt without certificate verification (pg 8 would otherwise verify
+  and fail on Supabase's chain); strips Prisma-only params (`schema`, `pgbouncer`). Small pool on Vercel.
+  Scripts that import prisma must `await pool.end()` at the end or they hang.
+- Env: `DATABASE_URL` = Supabase transaction pooler (6543); `DIRECT_URL` = session/direct (5432), used
+  by prisma.config.js for migrations; `SESSION_SECRET` required. `VERCEL` (set by Vercel) switches
+  uploads to `os.tmpdir()` (photos are not persistent there; accepted, presentation only), disables the
+  session prune timer and shrinks the pool.
+- The web project proxies `/api/*` to this one, so cookies stay first-party; `trust proxy` + `secure:
+  'auto'` makes the cookie Secure over HTTPS. Don't switch to cross-origin calls (CORS/SameSite=None):
+  Safari blocks those cookies.
 
 Schema change: edit `prisma/schema.prisma` → `npm run db:migrate -- --name <what_changed>`.
 Commit the generated folder under `prisma/migrations/`. Never edit an applied migration.
@@ -36,11 +59,16 @@ Commit the generated folder under `prisma/migrations/`. Never edit an applied mi
 ```
 prisma/schema.prisma      data model (Indonesian domain names, snake_case via @map/@@map)
 prisma/seed.js            fictional seed data
+prisma/kuesioner.js       official answer options + 1–5 scores per question (Laporan Akhir)
+prisma/dummy-data.js      simulation answers per seed KK (db:seed:dummy; test/dummy.test.js checks the V values)
 prisma.config.js          Prisma 7 config (datasource url, migrations, seed command)
 src/server.js             entry: listen + graceful shutdown
 src/app.js                express app: middleware, routers under /api, error handler
 src/config/env.js         the only place that reads process.env
-src/lib/prisma.js         single PrismaClient (PrismaPg adapter) — import this one
+src/lib/db.js             shared pg Pool + poolConfig(url) (Supabase SSL handling, see Hosting)
+src/lib/prisma.js         single PrismaClient (PrismaPg adapter on the shared pool) — import this one
+src/vercel.js             Vercel entry (default export = app); bundled by scripts/build-vercel.mjs
+api/index.js, vercel.json Vercel function + routing
 src/lib/session.js        express-session + Postgres store (`session` table), promisified helpers,
                           revokeUserSessions(userId, exceptSid?) = log a user out everywhere
 src/lib/audit.js          audit(db, { userId, aksi, entitas, entitasId, data }) + diff(before, after)

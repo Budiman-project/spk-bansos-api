@@ -2,7 +2,9 @@
 // Run: npm run db:seed
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
+import { pool } from '../src/lib/db.js';
 import { prisma } from '../src/lib/prisma.js';
+import { OPSI_JAWABAN } from './kuesioner.js';
 
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'password123';
 
@@ -12,9 +14,8 @@ const RT_LIST = [
   { noRt: '003', noRw: '001' },
 ];
 
-// Source: proposal Tabel 2.1.
-// TODO(C1): sifat & scale of C1 are pending the team's decision (see CLAUDE.md "Open decisions").
-// TODO(bobot): weights are placeholders until the team confirms them; they must sum to 1.00.
+// Source: Laporan Akhir Tabel 2.1 and Bab III 3.5.2 (W = [0,30; 0,15; 0,20; 0,25; 0,10], Σ = 1.00).
+// C1 is cost with "skor 1 = pendapatan terendah" (scale in prisma/kuesioner.js).
 const KRITERIA = [
   {
     kode: 'C1',
@@ -67,7 +68,9 @@ const KRITERIA = [
     ],
   },
 ];
-// TODO(opsi): answer options + 1–5 scores per question are not defined in the proposal yet.
+
+// Kuota of the simulation periode (Laporan Akhir Tabel 3.5, BB-06: 4 KK)
+const KUOTA_SIMULASI = 4;
 
 // Fictional households, three per RT (all in RW 001). KK numbers are made up: 320101010126 + seq.
 const KK_LIST = [
@@ -143,11 +146,40 @@ async function seedKriteria() {
   }
 }
 
+// Answer options from prisma/kuesioner.js, only for questions without any options yet, so options the
+// desa already edited in the Kriteria menu are never overwritten.
+async function seedOpsiJawaban() {
+  const pertanyaan = await prisma.pertanyaan.findMany({
+    select: {
+      id: true,
+      kode: true,
+      _count: { select: { opsi: true } },
+    },
+  });
+
+  let ditambah = 0;
+  for (const p of pertanyaan) {
+    const opsi = OPSI_JAWABAN[p.kode];
+    if (!opsi || p._count.opsi) continue;
+
+    await prisma.opsiJawaban.createMany({
+      data: opsi.map((o, index) => ({
+        pertanyaanId: p.id,
+        label: o.label,
+        skor: o.skor,
+        urutan: index + 1,
+      })),
+    });
+    ditambah += 1;
+  }
+  return ditambah;
+}
+
 async function seedPeriode() {
   const nama = 'Simulasi Bansos 2026';
   const existing = await prisma.periode.findFirst({ where: { nama } });
   if (!existing) {
-    await prisma.periode.create({ data: { nama, tahun: 2026, kuota: 10 } });
+    await prisma.periode.create({ data: { nama, tahun: 2026, kuota: KUOTA_SIMULASI } });
   }
 }
 
@@ -155,11 +187,13 @@ try {
   await seedWilayahDanAkun();
   await seedKartuKeluarga();
   await seedKriteria();
+  const opsiDitambah = await seedOpsiJawaban();
   await seedPeriode();
   console.log(
     `Seed selesai. Akun: admin.desa, rt001.rw001..rt003.rw001 (password: ${SEED_PASSWORD}); ` +
-      `${KK_LIST.length} KK contoh`,
+      `${KK_LIST.length} KK contoh; opsi jawaban ditambahkan ke ${opsiDitambah} pertanyaan`,
   );
 } finally {
   await prisma.$disconnect();
+  await pool.end();
 }

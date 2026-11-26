@@ -6,6 +6,7 @@
     "dev": "node --watch --env-file=.env src/server.js",
     "start": "node src/server.js",
     "start:docker": "prisma migrate deploy && node src/server.js",
+    "vercel-build": "node scripts/build-vercel.mjs",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
@@ -31,11 +32,13 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
     "prisma": "7.10.1"
   },
   "allowScripts": {
     "prisma@7.10.1": true,
-    "@prisma/engines@7.10.1": true
+    "@prisma/engines@7.10.1": true,
+    "esbuild@0.28.2": true
   },
   "private": true,
   "engines": {

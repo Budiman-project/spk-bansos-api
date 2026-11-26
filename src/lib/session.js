@@ -1,18 +1,21 @@
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { env } from '../config/env.js';
+import { pool } from './db.js';
 import { prisma } from './prisma.js';
 
 const PgStore = connectPgSimple(session);
 
 export const SESSION_COOKIE = 'spk.sid';
 
-// Sessions live in the `session` table (created by a Prisma migration, not by the library).
+// Sessions live in the `session` table (created by a Prisma migration, not by the library), on the
+// shared pool. Expired rows are pruned on a timer; not on Vercel, where an instance is frozen between
+// requests (expired sessions are still refused on read, the rows only stay until the next prune).
 export const sessionStore = new PgStore({
-  conString: env.databaseUrl,
+  pool,
   tableName: 'session',
   createTableIfMissing: false,
-  pruneSessionInterval: 15 * 60, // seconds
+  pruneSessionInterval: env.isVercel ? false : 15 * 60, // seconds
 });
 
 export const sessionMiddleware = session({
