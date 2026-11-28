@@ -19,7 +19,8 @@ import { notFound, errorHandler } from './middlewares/error-handler.js';
 export function createApp() {
   const app = express();
 
-  // Behind nginx (Docker) / Vite proxy (dev): trust X-Forwarded-* for secure cookies & client IP
+  // Behind nginx (Docker) / Vite proxy (dev):
+  // trust X-Forwarded-* for secure cookies & client IP
   app.set('trust proxy', 1);
 
   app.use(helmet());
@@ -27,8 +28,18 @@ export function createApp() {
   app.use(express.json());
   app.use(sessionMiddleware);
 
-  // Every route lives under /api so nginx and the Vite proxy can forward a single prefix.
-  // Auth/role guards are applied inside each router (see middlewares/auth.js).
+  // Root endpoint
+  app.get('/', (req, res) => {
+    res.json({
+      name: 'SPK Bansos API',
+      status: 'running',
+      message: 'Backend SPK Bansos aktif'
+    });
+  });
+
+  // Every route lives under /api so nginx and the Vite proxy
+  // can forward a single prefix.
+  // Auth/role guards are applied inside each router.
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
