@@ -5,3 +5,5 @@ uploads
 src/generated
 coverage
 *.log
+dist
+.vercel

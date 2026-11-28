@@ -1,7 +1,11 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { env } from '../config/env.js';
+import { dbSchema, pool } from './db.js';
 
-const adapter = new PrismaPg({ connectionString: env.databaseUrl });
+// One client per process, on the shared pool (src/lib/db.js).
+const adapter = new PrismaPg(
+  pool,
+  dbSchema ? { schema: dbSchema } : undefined
+);
 
 export const prisma = new PrismaClient({ adapter });

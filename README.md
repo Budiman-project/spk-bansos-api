@@ -47,6 +47,44 @@ benefit/cost, nilai V, ranking, kuota, dan aturan nilai seri.
 Sesi memakai cookie httpOnly `spk.sid` yang otomatis disimpan Postman.
 Tanpa Postman: `npx newman run postman/spk-bansos-api.postman_collection.json`.
 
+## Deploy ke Vercel + Supabase
+Dua project Vercel: **spk-bansos-api** (repo ini) dan **spk-bansos-web** (frontend). Basis data di Supabase.
+
+**1. Supabase** → Project Settings → Database → Connection string:
+- *Transaction pooler* (port **6543**) → dipakai aplikasi sebagai `DATABASE_URL`, tambahkan `?sslmode=require`.
+- *Session pooler* / *Direct* (port **5432**) → `DIRECT_URL`, hanya untuk migrasi.
+
+**2. Project Vercel `spk-bansos-api`** (Import repo ini; Framework Preset: *Other*, Root Directory: repo ini).
+`vercel.json` sudah mengatur semuanya: build `npm run vercel-build` (bundel API dengan esbuild ke
+`dist/`, lalu `prisma migrate deploy` bila `DIRECT_URL` ada), satu function `api/index.js`, region `sin1`
+(Singapura, dekat Supabase Asia Tenggara; ganti bila region Supabase berbeda). Environment Variables:
+
+| Nama | Isi |
+|---|---|
+| `DATABASE_URL` | string *Transaction pooler* (6543) + `?sslmode=require` |
+| `DIRECT_URL` | string *Session pooler*/*Direct* (5432) |
+| `SESSION_SECRET` | string acak panjang (wajib di production) |
+
+Cek: `https://<domain-api>/api/health` → `{"status":"ok","db":"up"}`.
+
+**3. Isi data** (sekali, dari komputer sendiri, `.env` berisi `DATABASE_URL` + `DIRECT_URL` Supabase):
+```bash
+npx prisma migrate deploy   # jika belum dijalankan oleh build Vercel
+npm run db:seed             # akun, RT, KK, kriteria, bobot, opsi jawaban, periode (kuota 4)
+npm run db:seed:dummy       # opsional: 9 survei simulasi sesuai Laporan Akhir
+```
+
+**4. Project Vercel `spk-bansos-web`**: di `vercel.json` repo frontend, ganti tujuan rewrite
+`https://spk-bansos-api.vercel.app` dengan domain API yang sebenarnya. Frontend selalu memanggil `/api/...`
+pada domainnya sendiri dan Vercel meneruskannya ke API, sehingga cookie sesi tetap *first-party*
+(login juga berfungsi di Safari/iPhone). Jangan memanggil domain API langsung dari browser.
+
+Catatan hosting:
+- Foto survei di Vercel disimpan di `/tmp` instance: cukup untuk presentasi, tetapi dapat hilang saat
+  instance didaur ulang (bukan penyimpanan permanen).
+- Batas request Vercel 4,5 MB; frontend mengecilkan foto (maks. 1600 px, JPEG) sebelum diunggah.
+- Uji bundel Vercel secara lokal: `npm run vercel-build`, lalu jalankan `api/index.js` sebagai handler.
+
 ## Menjalankan seluruh sistem (demo)
 Pastikan repo frontend `spk-bansos-web` ada di `../../Frontend/spk-bansos-web` (atau atur `WEB_PATH` di `.env`), lalu:
 ```bash

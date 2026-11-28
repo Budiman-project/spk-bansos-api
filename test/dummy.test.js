@@ -1,10 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { hitungSaw, konversiNilai } from '../src/lib/saw.js';
-import { JAWABAN_DUMMY, KUOTA_DUMMY, OPSI_DUMMY } from '../prisma/dummy-data.js';
+import { JAWABAN_DUMMY, KUOTA_DUMMY } from '../prisma/dummy-data.js';
+import { OPSI_JAWABAN } from '../prisma/kuesioner.js';
 
-// The ranking the dummy seed (npm run db:seed:dummy) should produce in the app with the seed's
-// placeholder weights and C1 as cost. Keeps the walkthrough given to the team in sync with the code.
+// The ranking the simulation seed (npm run db:seed:dummy) should produce in the app with the seed's
+// weights and C1 as cost: the V values of Laporan Akhir Tabel 3.5 / 4.2. Keeps the report and code in sync.
 const KRITERIA = [
   { kode: 'C1', sifat: 'cost', bobot: 0.3, pertanyaan: ['1'] },
   { kode: 'C2', sifat: 'benefit', bobot: 0.15, pertanyaan: ['2a', '2b'] },
@@ -16,7 +17,7 @@ const KRITERIA = [
 describe('dummy data', () => {
   it('answers every question with a score that has an option', () => {
     for (const [nama, skor] of Object.entries(JAWABAN_DUMMY)) {
-      for (const [kode, opsi] of Object.entries(OPSI_DUMMY)) {
+      for (const [kode, opsi] of Object.entries(OPSI_JAWABAN)) {
         assert.ok(
           opsi.some((o) => o.skor === skor[kode]),
           `${nama}: pertanyaan ${kode} skor ${skor[kode]}`,
