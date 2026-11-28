@@ -28,13 +28,9 @@ export function createApp() {
   app.use(express.json());
   app.use(sessionMiddleware);
 
-  // Root endpoint
+  // Jika root backend dibuka, arahkan ke halaman login frontend
   app.get('/', (req, res) => {
-    res.json({
-      name: 'SPK Bansos API',
-      status: 'running',
-      message: 'Backend SPK Bansos aktif'
-    });
+    res.redirect('https://spk-bansos-web.vercel.app/login');
   });
 
   // Every route lives under /api so nginx and the Vite proxy
